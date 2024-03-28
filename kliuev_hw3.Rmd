@@ -1,0 +1,233 @@
+---
+title: "kliuev_3"
+output: html_document
+date: "2024-03-27"
+---
+
+```{=html}
+<style type="text/css">
+body{
+  font-family: Arial;
+  font-size: 12pt;
+}
+/* Headers */
+h1, h2{
+  font-size: 14pt;
+}
+</style>
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	message = FALSE,
+	warning = FALSE,
+	include = FALSE
+)
+#install.packages("readxl")
+
+library(readxl)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+```
+
+# Загрузка данных
+
+```{r data, include=TRUE}
+
+# Загрузка и просмотр данных
+pima <- read_excel("pima.xlsx")
+pima <- na.omit(pima)
+str(pima)
+```
+
+## 1. Рассчитайте описательные статистики для переменных glucose, pressure, mass
+
+```{r stat num, include=TRUE}
+
+# Расчет для glucose
+glucose_stats <- pima %>%
+  summarise(
+    n = n(),
+    mean_glucose = mean(glucose, na.rm = TRUE),
+    sd_glucose = sd(glucose, na.rm = TRUE),
+    Q1_glucose = quantile(glucose, 0.25, na.rm = TRUE),
+    Q3_glucose = quantile(glucose, 0.75, na.rm = TRUE),
+    min_glucose = min(glucose, na.rm = TRUE),
+    max_glucose = max(glucose, na.rm = TRUE)
+  )
+
+
+# Расчет для pressure
+pressure_stats <- pima %>%
+  summarise(
+    n = n(),
+    mean_pressure = mean(pressure, na.rm = TRUE),
+    sd_pressure = sd(pressure, na.rm = TRUE),
+    Q1_pressure = quantile(pressure, 0.25, na.rm = TRUE),
+    Q3_pressure = quantile(pressure, 0.75, na.rm = TRUE),
+    min_pressure = min(pressure, na.rm = TRUE),
+    max_pressure = max(pressure, na.rm = TRUE)
+  )
+
+# Расчет для mass
+mass_stats <- pima %>%
+  summarise(
+    n = n(),
+    mean_mass = mean(mass, na.rm = TRUE),
+    sd_mass = sd(mass, na.rm = TRUE),
+    Q1_mass = quantile(mass, 0.25, na.rm = TRUE),
+    Q3_mass = quantile(mass, 0.75, na.rm = TRUE),
+    min_mass = min(mass, na.rm = TRUE),
+    max_mass = max(mass, na.rm = TRUE)
+  )
+
+# Объединение и вывод результатов
+all_stats <- bind_rows(glucose_stats, pressure_stats, mass_stats)
+
+print(all_stats)
+
+```
+
+## 2. Рассчитайте описательную статистику для переменной diabetes. 
+
+```{r stat factor, include=TRUE}
+# Описательная статистика diabetes
+diabetes_stats <- pima %>%
+  group_by(diabetes) %>%
+  summarise(
+    Count = n(),
+    Frequency = n() / nrow(pima)
+  )
+
+print(diabetes_stats)
+```
+
+## Создайте на основе переменной age новую переменную age_group, которая будет отражать следующие возрастные группы: 21–35, 36–49 и 50+. Посчитайте описательную статистику для новой переменной.
+
+```{r new age_group, include=TRUE}
+# Создание и анализ age_group
+pima %>%
+  count(diabetes) %>%
+  mutate(Frequency = n / nrow(.)) %>%
+  print()
+
+pima %>%
+  mutate(age_group = cut(age,
+                         breaks = c(21, 35, 49, Inf),
+                         labels = c("21–35", "36–49", "50+"),
+                         right = FALSE)) %>%
+  count(age_group) %>%
+  mutate(Frequency = n / nrow(pima)) %>%
+  print()
+
+```
+
+## 3. Определите 90% доверительный интервал для переменной pedigree.
+
+```{r CI intervals, include=TRUE}
+# Расчет среднего значения, стандартного отклонения и размера выборки
+pedigree_mean <- mean(pima$pedigree, na.rm = TRUE)
+pedigree_sd <- sd(pima$pedigree, na.rm = TRUE)
+n <- sum(!is.na(pima$pedigree))
+
+# Расчет погрешности маржи
+error_margin <- qt(0.95, df = n - 1) * (pedigree_sd / sqrt(n))
+
+# Расчет и вывод 90% доверительного интервала для переменной 'pedigree'
+ci_lower <- pedigree_mean - error_margin
+ci_upper <- pedigree_mean + error_margin
+cat("90% доверительный интервал для 'pedigree': [", ci_lower, ", ", ci_upper, "]\n")
+
+
+```
+
+## 4.1. Постройте график плотности вероятности для переменной glucose и отметьте на нем среднее значение.
+
+```{r dens, include=TRUE}
+library(ggplot2)
+
+ggplot(pima, aes(x = glucose)) +
+  geom_density(aes(fill = "Плотность"), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(glucose, na.rm = TRUE), color = "Среднее"), linetype = "dashed", size = 1) +
+  scale_fill_manual(values = "blue", name = "") +
+  scale_color_manual(values = "green", name = "") +
+  labs(title = "Плотность вероятности для Glucose",
+       x = "Уровень глюкозы",
+       y = "Плотность") +
+  theme_minimal() +
+  theme(
+    title = element_text(size = 20, face = "bold"),
+    axis.title = element_text(size = 14),
+    legend.position = "none"
+  )
+
+```
+
+## 4.2. Для той же переменной постройте гистограмму.
+
+```{r hist, include=TRUE}
+
+ggplot(pima, aes(x = glucose)) +
+  geom_histogram(binwidth = 5, fill = "green", color = "black") +
+  labs(title = "Гистограмма для Glucose",
+       x = "Уровень глюкозы",
+       y = "Частота") +
+  theme_minimal() +
+  theme(
+    title = element_text(size = 20, face = "bold"),
+    axis.title = element_text(size = 14)
+  )
+
+```
+
+## 4.3 Постройте два ящика с усами для значений pos и neg соответственно переменной diabetes.
+
+```{r boxplot, include=TRUE}
+library(ggplot2)
+
+# Ящики с усами для Glucose по Diabetes 
+ggplot(pima, aes(x = diabetes, y = glucose, fill = diabetes)) +
+  geom_boxplot() +
+  labs(title = "Распределение Glucose по статусу Diabetes",
+       x = "Статус Diabetes",
+       y = "Уровень Glucose") +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 20, face = "bold"),
+    axis.title = element_text(size = 14)
+  )
+
+# Без выбросов
+ggplot(pima, aes(x = diabetes, y = glucose, fill = diabetes)) +
+  geom_boxplot(outlier.shape = NA) +
+  labs(title = "Распределение Glucose по статусу Diabetes (без выбросов)",
+       x = "Статус Diabetes",
+       y = "Уровень Glucose") +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 20, face = "bold"),
+    axis.title = element_text(size = 14)
+  )
+
+```
+
+## 5. Постройте на одном графике две диаграммы рассеяния для наличия или отсутствия диабета. По оси X представьте значения обхвата трицепса, а по оси Y — массу тела. Выполните окрашивание, заливку и группирование по переменной diabetes.
+
+```{r facet, include=TRUE}
+# Удаление строк, в которых данные по triceps или mass равны нулю
+pima_clean <- pima %>%
+  filter(triceps != 0, mass != 0)
+
+# Построение графика
+facet <- ggplot(data = pima_clean, aes(x = triceps, y = mass)) +
+  geom_point(aes(fill = factor(diabetes)), shape = 21, size = 3) +
+  scale_fill_manual(values = c("#1b9e77", "#d95f02")) + 
+  facet_grid(. ~ diabetes) +
+  labs(title = "Диаграмма рассеяния для переменной diabetes",
+       x = "Обхват трицепса (triceps)", y = "Масса тела (mass)") +
+  theme_light()
+
+print(facet)
+```
